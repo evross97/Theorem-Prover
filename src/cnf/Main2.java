@@ -38,7 +38,7 @@ public class Main2 {
 	private static ArrayList<String> inputs;
 	private static ArrayList <String> symbols = new ArrayList<String>();
 	private static ArrayList <ArrayList <String>> finishedclauses = new ArrayList<ArrayList<String>>();
-	private static boolean debug = true;
+	private static boolean debug = false;
 	private static Prover prover = new Prover();
 	
 	
@@ -464,8 +464,6 @@ public class Main2 {
 			{
 				ArrayList<String> infront = findforward(i);
 				ArrayList<String> behind = findbackward(i);
-				System.out.println("infront" + infront);
-				System.out.println("behind" + behind);
 				
 				symbols.set(i, "and");
 				//RHS
@@ -497,8 +495,6 @@ public class Main2 {
 				symbols.set(i, "ore");
 				ArrayList<String> infront = findforward(i);
 				ArrayList<String> behind = findbackward(i);
-				System.out.println("infrint" + infront);
-				System.out.println("behind" + behind);
 				symbols.add(i + infront.size() + 1, "cbr");
 				if(behind.size() == 1)
 				{
@@ -526,7 +522,6 @@ public class Main2 {
 			if(symbols.get(i).equals("neg") && symbols.get(i+1).equals("obr"))
 			{
 				ArrayList<String> infront = findforward(i);
-				System.out.println(infront);
 				symbols.remove(i+infront.size());
 				nochange = false;
 				for(int j = i+1; j < i + (infront.size()); j++)
@@ -583,7 +578,6 @@ public class Main2 {
 	private static boolean distribute(boolean nochange)
 	{
 		int pos = ismiddleore("ore");
-		System.out.println("pos" + pos);
 		boolean findand = symbols.contains("and");
 		if(pos != 0 && findand)
 		{

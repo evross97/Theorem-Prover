@@ -22,7 +22,6 @@ public class Prover {
 		while(true)
 		{
 			literal = null;
-			System.out.println(clauses);
 			for(int i = 0 ; i < clauses.size()-2; i++)
 			{
 				literal = choosetwo(i);
@@ -49,7 +48,6 @@ public class Prover {
 		current = clauses.get(pos);
 		for(int i = pos+1; i < clauses.size(); i++)
 		{
-			System.out.println("looking" + current + clauses.get(i));
 			String literal = found(current,clauses.get(i));
 			if(literal != null)
 			{
@@ -82,7 +80,6 @@ public class Prover {
 			
 			if(literal && two.contains(temp))
 			{
-				System.out.println(one + "  " + two);
 				clause1.addAll(one);
 				clause2.addAll(two);
 				return one.get(i);
@@ -94,9 +91,6 @@ public class Prover {
 	
 	private void resolve(String literal)
 	{
-		System.out.println("clauses" + clauses);
-		System.out.println("clause1" + clause1);
-		System.out.println("clause2" + clause2);
 		if(clause1.size() == 1 && clause2.size() == 1)
 		{
 			System.out.println("Falsehood - unsatisfiable");
@@ -141,17 +135,14 @@ public class Prover {
 			i++;
 			
 		}
-		System.out.println("new clause" + newclause);
 	proof += "[CLAUSES]   {" + Main2.toletters(clause1) + "}     {" +  Main2.toletters(clause2) + "}\n";
 	proof += "[RESOLVANT] {" + Main2.toletters(newclause) + "}\n";
 		clauses.remove(clause1);
 		clauses.remove(clause2);
 		for(int j = 0; j < clauses.size(); j++)
 		{
-			System.out.println("here" + clauses.get(j));
 			if(clauses.get(j).equals(newclause))
 			{
-				System.out.println(clauses.get(j));
 				System.out.println("Proof:");
 				System.out.println(proof);
 				System.out.println("Old clause set contains same clauses a new clause set, therefore SAT");
