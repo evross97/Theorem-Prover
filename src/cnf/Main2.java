@@ -12,7 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
- * Negation pushed - DE morgan's - ish!
+ * Negation pushed - DE morgan's --
  * Implication removed --
  * Equivalence removed --
  * Distributivity
@@ -30,7 +30,6 @@ import java.util.regex.Pattern;
  * -> = imp
  * <-> = equ
  * 
- * -(-(-(A | B))) - fails
  * 
  */
 public class Main2 {
@@ -38,7 +37,9 @@ public class Main2 {
 	private static char[] inputcon;
 	private static ArrayList<String> inputs;
 	private static ArrayList <String> symbols = new ArrayList<String>();
-	private static ArrayList <ArrayList <String>> clauses = new ArrayList<ArrayList<String>>();
+	private static ArrayList <ArrayList <String>> finishedclauses = new ArrayList<ArrayList<String>>();
+	private static boolean debug = true;
+	private static Prover prover = new Prover();
 	
 	
 	public static void main(String[] args) {
@@ -57,37 +58,52 @@ public class Main2 {
 		{
 			e.printStackTrace();
 		}
-		
-		for(String inpt : inputs)
+		System.out.println("Clauses:");
+		for(int i = 0; i < inputs.size(); i++)
 		{
-			symbols.clear();
-			inpt = inpt.replaceAll(" ", "");
-			makesymbols(inpt);
-			parenthesise();
-			System.out.println("After parenthesise" + symbols);
-			convert();
-			System.out.println("After convert" + symbols);
-			makeclauses();
-			clauses.add(symbols);
+			try
+			{
+					String inpt = inputs.get(i);
+					symbols.clear();
+					inpt = inpt.replaceAll(" ", "");
+					symbols = makesymbols(inpt);
+					finddoubles();
+					parenthesise();
+					if(debug)System.out.println("After parenthesise" + symbols);
+					convert();
+					if(debug)System.out.println("After convert" + symbols);
+					makeclauses();
+			}
+			catch(Exception e)
+			{
+				System.err.println("ERROR  Could not convert your formulas into CNF");;
+				System.exit(1);
+			}
+			
 		}
-		/*input = "-(-(-(A | B)))";
-		System.out.println(input);
-		input = input.replaceAll(" ", "");
 		
-
-		makesymbols(input);
-		parenthesise();
-		System.out.println("After parenthesise" + symbols);
-		convert();
-		System.out.println("After convert" + symbols);
-		makeclauses();	*/
-
+		prover.run(finishedclauses);
 	}
+	
+	private static void finddoubles()
+	{
+		int i = 0;
+		while(i + 2 < symbols.size())
+		{
+			if((symbols.get(i).equals(symbols.get(i+2))) && (symbols.get(i+1).equals("ore") | symbols.get(i + 1).equals("and")))
+			{
+				symbols.remove(i+2);
+				symbols.remove(i+1);
+			}
+			i++;
+		}
+	}
+
 	
 	/**
 	 * Converts the input into a form which is used by the program
 	 */
-	private static void makesymbols(String input)
+	private static ArrayList<String> makesymbols(String input)
 	{
 		input = input.replaceAll("\\)", " cbr ");
 		input = input.replaceAll("\\(", "obr ");
@@ -97,7 +113,8 @@ public class Main2 {
 		input = input.replaceAll("\\&", " and ");
 		input = input.replaceAll("\\|", " ore ");
 		
-		
+		ArrayList<String> tempsymbols = new ArrayList<String>();
+		tempsymbols.addAll(symbols);
 		inputcon = input.toCharArray();
 		int i = 0;
 		String current = "";
@@ -116,13 +133,13 @@ public class Main2 {
 			i++;
 			if(current.equals("negobr"))
 			{
-				symbols.add("neg");
-				symbols.add("obr");
+				tempsymbols.add("neg");
+				tempsymbols.add("obr");
 				current = "";
 			}
 			if(current.isEmpty() == false)
 			{
-				symbols.add(current);
+				tempsymbols.add(current);
 			}
 			if(i >= inputcon.length)
 			{
@@ -130,7 +147,7 @@ public class Main2 {
 			}
 		}
 		
-		
+		return tempsymbols;
 		
 	}	
 	/**
@@ -139,13 +156,20 @@ public class Main2 {
 	private static void parenthesise()
 	{
 		findnegation();
-		System.out.println("After negation" + symbols);
+		if(debug)System.out.println("After negation" + symbols);
 		findconj();
-		System.out.println("After conjunction" + symbols);
+		if(debug)System.out.println("After conjunction" + symbols);
 		finddisj();
-		System.out.println("After disjunction" + symbols);
+		if(debug)System.out.println("After disjunction" + symbols);
 		findimp();
+		if(debug)System.out.println("After implication" + symbols);
 		findequiv();
+		if(debug)System.out.println("After equivalence" + symbols);
+		if(!symbols.contains("obr"))
+		{
+			symbols.add("cbr");
+			symbols.add(0, "obr");
+		}
 	}
 	
 	/**
@@ -156,31 +180,6 @@ public class Main2 {
 	 */
 	private static void find(ArrayList<String> behind, ArrayList<String> infront, int pos)
 	{
-		/*if(behind.isEmpty())
-		{
-			symbols.add(pos, "cbr");
-			symbols.add(pos-2, "obr");
-		}
-		else
-		{
-			int length = behind.size();
-			symbols.add(pos, "cbr");
-			symbols.add(pos-length, "obr");
-		}
-		
-		pos += 2;
-		if(infront.isEmpty())
-		{
-			symbols.add(pos+2, "cbr");
-			symbols.add(pos+1, "obr");
-		}
-		else
-		{
-			int length = infront.size();
-			symbols.add(pos+length+1, "cbr");
-			symbols.add(pos+1, "obr");
-		*/
-		
 		symbols.add(pos+infront.size()+1, "cbr");
 		symbols.add(pos-behind.size(), "obr");
 	}
@@ -320,11 +319,19 @@ public class Main2 {
 	private static void findconj()
 	{
 		ArrayList<Integer> occ = freq2("and");
-		for(int i:occ)
+		int i = 0;
+		int orig = occ.size();
+		while(i < orig)
 		{
-			ArrayList<String> infront = findforward(i);
-			ArrayList<String> behind = findbackward(i);
-			find(behind,infront,i);			
+			ArrayList<String> infront = findforward(occ.get(0));
+			ArrayList<String> behind = findbackward(occ.get(0));
+			find(behind,infront,(occ.get(0)));
+			occ = freq2("and");
+			for(int j = 0; j <= i; j ++)
+			{
+				occ.remove(0);
+			}
+			i++;			
 		}
 	}
 	
@@ -334,11 +341,19 @@ public class Main2 {
 	private static void finddisj()
 	{
 		ArrayList<Integer> occ = freq2("ore");
-		for(int i:occ)
+		int i = 0;
+		int orig = occ.size();
+		while(i < orig)
 		{
-			ArrayList<String> infront = findforward(i);
-			ArrayList<String> behind = findbackward(i);
-			find(behind,infront,i);			
+			ArrayList<String> infront = findforward(occ.get(0));
+			ArrayList<String> behind = findbackward(occ.get(0));
+			find(behind,infront,(occ.get(0)));
+			occ = freq2("ore");
+			for(int j = 0; j <= i; j ++)
+			{
+				occ.remove(0);
+			}
+			i++;			
 		}
 	}
 	
@@ -348,11 +363,19 @@ public class Main2 {
 	private static void findimp()
 	{
 		ArrayList<Integer> occ = freq2("imp");
-		for(int i:occ)
+		int i = 0;
+		int orig = occ.size();
+		while(i < orig)
 		{
-			ArrayList<String> infront = findforward(i);
-			ArrayList<String> behind = findbackward(i);
-			find(behind,infront,i);			
+			ArrayList<String> infront = findforward(occ.get(0));
+			ArrayList<String> behind = findbackward(occ.get(0));
+			find(behind,infront,(occ.get(0)));
+			occ = freq2("imp");
+			for(int j = 0; j <= i; j ++)
+			{
+				occ.remove(0);
+			}
+			i++;			
 		}
 	}
 	
@@ -362,11 +385,19 @@ public class Main2 {
 	private static void findequiv()
 	{
 		ArrayList<Integer> occ = freq2("equ");
-		for(int i:occ)
+		int i = 0;
+		int orig = occ.size();
+		while(i < orig)
 		{
-			ArrayList<String> infront = findforward(i);
-			ArrayList<String> behind = findbackward(i);
-			find(behind,infront,i);			
+			ArrayList<String> infront = findforward(occ.get(0));
+			ArrayList<String> behind = findbackward(occ.get(0));
+			find(behind,infront,(occ.get(0)));
+			occ = freq2("equ");
+			for(int j = 0; j <= i; j ++)
+			{
+				occ.remove(0);
+			}
+			i++;			
 		}
 	}
 
@@ -381,14 +412,15 @@ public class Main2 {
 			nochange = true;
 			
 			nochange = doublenegation(nochange);
-			System.out.println("After convert double negation" + symbols);
+			if(debug)System.out.println("After convert double negation" + symbols);
 			nochange = equivalence(nochange);
-			System.out.println("After equivalence" + symbols);
+			if(debug)System.out.println("After equivalence" + symbols);
 			nochange = implication(nochange);
-			System.out.println("After implication" + symbols);
+			if(debug)System.out.println("After implication" + symbols);
 			nochange = demorgan(nochange);
-			System.out.println("After De'Morgans" + symbols);
-			
+			if(debug)System.out.println("After De'Morgans" + symbols);
+			nochange = distribute(nochange);
+			if(debug)System.out.println("After distributivity" + symbols);
 			if(nochange)
 			{
 				break;
@@ -396,7 +428,6 @@ public class Main2 {
 		}
 
 	}
-	
 	/**
 	 * Gets rid of double negation
 	 * @param nochange
@@ -406,6 +437,14 @@ public class Main2 {
 		
 		for(int i = 0; i < symbols.size(); i++)
 		{
+			if(symbols.get(i).equals("negneg"))
+			{
+				ArrayList<String> infront = findforward(i);
+				symbols.remove(i+infront.size());
+				symbols.remove(i+1);
+				symbols.remove(i);
+				
+			}
 			if(symbols.get(i).contains("negneg"))
 			{
 				String temp = symbols.get(i).replaceAll("negneg", "");
@@ -458,11 +497,12 @@ public class Main2 {
 				symbols.set(i, "ore");
 				ArrayList<String> infront = findforward(i);
 				ArrayList<String> behind = findbackward(i);
+				System.out.println("infrint" + infront);
+				System.out.println("behind" + behind);
 				symbols.add(i + infront.size() + 1, "cbr");
-				if(infront.size() == 1)
+				if(behind.size() == 1)
 				{
 					String temp = symbols.get(i - behind.size());
-					System.out.println(temp);
 					symbols.set(i - behind.size(), "neg"+temp);
 				}
 				else
@@ -476,67 +516,192 @@ public class Main2 {
 		
 		return nochange;
 	}
+
 	
 	private static boolean demorgan(boolean nochange)
 	{
+		boolean foundneg = false;
 		for(int i = 0; i < (symbols.size()-1); i++)
 		{
 			if(symbols.get(i).equals("neg") && symbols.get(i+1).equals("obr"))
 			{
 				ArrayList<String> infront = findforward(i);
-				for(int j = i; j < i + (infront.size()-1); j++)
+				System.out.println(infront);
+				symbols.remove(i+infront.size());
+				nochange = false;
+				for(int j = i+1; j < i + (infront.size()); j++)
 				{
-					if(symbols.get(j).equals("neg") && symbols.get(j+1).equals("obr"))
+					if(symbols.get(j).equals("neg"))
 					{
-						symbols.remove(j);
+						symbols.set(j, "negneg");
+						foundneg = true;
+						break;
+					}
+					if(symbols.get(j).equals("and"))
+					{
+						symbols.set(j, "ore");
+					}
+					else
+					{
+						if(symbols.get(j).equals("ore"))
+						{
+							symbols.set(j, "and");
+						}
+					}
+					if(symbols.get(j).matches("[A-Z]+[0-9]*"))
+					{
+						String temp = symbols.get(j);
+						temp = "neg" + temp;
+						symbols.set(j, temp);
+					}
+					else
+					{
+						if(symbols.get(j).contains("neg"))
+						{
+							String temp = symbols.get(j);
+							temp = temp.replace("neg", "");
+							symbols.set(j, temp);
+						}
 					}
 				}
-				demorgan2(i);
-				nochange = false;
+				symbols.remove(i);
+				symbols.remove(i);
+				if(foundneg)
+				{
+					nochange = doublenegation(nochange);
+				}
 			}
 		}
-		
 		return nochange;
 	}
 	
-	private static void demorgan2(int i)
+	/**
+	 * Checks if the distributivity law needs to be applied
+	 * @param nochange
+	 * @return
+	 */
+	private static boolean distribute(boolean nochange)
 	{
-		if(symbols.get(i).equals("neg") && symbols.get(i+1).equals("obr"))
+		int pos = ismiddleore("ore");
+		System.out.println("pos" + pos);
+		boolean findand = symbols.contains("and");
+		if(pos != 0 && findand)
 		{
-			ArrayList<String> infront = findforward(i);
-			symbols.remove(i+infront.size());
-			for(int j = i + (infront.size()-1); j >= i; j--)
+			ArrayList<String> behind = findbackward(pos);
+			ArrayList<String> infront = findforward(pos); 
+			
+			int posand = symbols.indexOf("and");
+			
+			ArrayList<String> behind2 = findbackward(posand);
+			ArrayList<String> infront2 = findforward(posand);
+			
+			ArrayList<String> old = new ArrayList<String>();
+			old.addAll(behind2);
+			old.add(symbols.get(posand));
+			old.addAll(infront2);
+			symbols.set(pos, "and");
+			
+			ArrayList<String> new1 = new ArrayList<String>();
+			ArrayList<String> new2 = new ArrayList<String>();
+			if(posand > pos)
 			{
-				if(symbols.get(j).equals("neg"))
+				for(int i = 0; i < infront.size(); i++)
 				{
-					symbols.remove(j);
+					symbols.remove(pos+1);
 				}
-				else
+				new1.addAll(behind);
+				new1.add(0, "obr");
+				new1.add("ore");
+				new1.addAll(infront2);
+				new1.add("cbr");
+				symbols.addAll(pos+1, new1);
+				
+				new2.addAll(behind2);
+				new2.add(0, "ore");
+				new2.add("cbr");
+				if(behind.size() == 1)
 				{
-					if(symbols.get(j).contains("neg"))
-					{
-						String temp = symbols.get(j);
-						temp = temp.replace("neg", "negneg");
-						symbols.set(j, temp);
-					}
+					symbols.add(pos - behind.size(), "obr");
 				}
-				if(symbols.get(j).equals("and"))
-				{
-					symbols.set(j, "ore");
-				}
-				if(symbols.get(j).equals("ore"))
-				{
-					symbols.set(j, "and");
-				}
-				if(symbols.get(j).matches("[A-Z]+[0-9]*"))
-				{
-					String temp = symbols.get(j);
-					temp = "neg" + temp;
-					symbols.set(j, temp);
-				}
+				symbols.addAll(pos, new2);
+				
+				int pos2 = ismiddle("and");
+				int behsize = behind.size() + new2.size() + 1;
+				symbols.add(pos2 - behsize, "obr");
 			}
-			symbols.remove(i);
+			else
+			{
+				new1.addAll(infront2);
+				new1.add(0, "ore");
+				symbols.addAll(pos + infront.size(), new1);
+				if(infront.size() == 1)
+				{
+					symbols.add(pos+1, "obr");
+				}
+				
+				for(int i = 0; i < behind.size()-1; i++)
+				{
+					symbols.remove(pos-(behind.size()-1));
+				}
+				new2.addAll(behind2);
+				new2.add("ore");
+				new2.addAll(infront);
+				new2.add("cbr");
+				
+				symbols.addAll(pos-(behind.size()-1), new2);
+				
+				
+			}
+			
+			nochange = false;
 		}
+		return nochange;
+	}
+	
+	/**
+	 * Check to see if the center operator is the symbols given - if it return its position
+	 * @return
+	 */
+	private static int ismiddleore(String word)
+	{
+		int br = 0;
+		for(int i = 0; i < symbols.size(); i++)
+		{
+			if(symbols.get(i).equals("obr"))
+			{
+				br++;
+			}
+			if(symbols.get(i).equals("cbr"))
+			{
+				br--;
+			}
+			if(symbols.get(i).equals(word) && br == 1)
+			{
+				return i;
+			}
+		}
+		return 0;
+	}
+	
+	private static int ismiddle(String word)
+	{
+		int br = 0;
+		for(int i = 0; i < symbols.size(); i++)
+		{
+			if(symbols.get(i).equals("obr"))
+			{
+				br++;
+			}
+			if(symbols.get(i).equals("cbr"))
+			{
+				br--;
+			}
+			if(symbols.get(i).equals(word) && br == 0)
+			{
+				return i;
+			}
+		}
+		return 0;
 	}
 	
 	/**
@@ -544,6 +709,7 @@ public class Main2 {
 	 */
 	private static void makeclauses()
 	{
+
 		ArrayList<String> clause = new ArrayList<String>();
 		int occ = freq("ore");
 		int i = 0;
@@ -579,14 +745,36 @@ public class Main2 {
 			if(symbols.get(j).equals("and"))
 			{
 				System.out.println("{" + toletters(clause) + "}");
-				clause.clear();;
+				clause.clear();
 			}
 			else
 			{
 				clause.add(symbols.get(j));
 			}
 		}
+		
 		System.out.println("{" + toletters(clause) + "}");
+	}
+	
+	private static ArrayList<String> removebr(ArrayList<String> clause)
+	{
+		int i = 0;
+		while(true)
+		{
+			if(clause.get(i).equals("obr") || clause.get(i).equals("cbr"))
+			{
+				clause.remove(i);
+			}
+			else
+			{
+				i++;
+			}
+			if(i == clause.size())
+			{
+				break;
+			}
+		}
+		return clause;
 	}
 	
 	/**
@@ -594,8 +782,12 @@ public class Main2 {
 	 * @param clause
 	 * @return
 	 */
-	private static String toletters(ArrayList<String> clause)
+	public static String toletters(ArrayList<String> clause)
 	{
+		ArrayList<String> clause2 = new ArrayList<String>();
+		clause2.addAll(clause);
+		clause2 = removebr(clause2);
+		finishedclauses.add(clause2);
 		boolean done;
 		String fin = "";
 		for(String i:clause)
@@ -628,6 +820,7 @@ public class Main2 {
 			}
 		}
 		fin = deletebrackets(fin);
+		fin = deleteleftover(fin);
 		return fin;
 	}
 	
@@ -640,6 +833,16 @@ public class Main2 {
 	{
 		fin = fin.replaceFirst("\\(", "");
 		fin = fin.substring(0, fin.length()-1);
+		return fin;
+	}
+	
+	/**
+	 * Deletes weird brackets!
+	 */
+	private static String deleteleftover(String fin)
+	{
+		fin = fin.replaceAll("\\(", "");
+		fin = fin.replaceAll("\\)", "");
 		return fin;
 	}
 	
